@@ -1,0 +1,113 @@
+
+networks:
+  gateway-net:
+    driver: bridge
+
+services:
+
+  # ── Redis ──────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    networks: [gateway-net]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  # ── Mock backends ─────────────────────────────────────────────────────────
+  backend-1:
+    build: .
+    command: node mockBackend/server.js
+    networks: [gateway-net]
+    environment:
+      PORT: 5001
+      # Set FAILURE_RATE=0.8 temporarily to test circuit breaker recovery
+      FAILURE_RATE: 0
+    ports:
+      - "5001:5001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-s", "http://localhost:5001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  backend-2:
+    build: .
+    command: node mockBackend/server.js
+    networks: [gateway-net]
+    environment:
+      PORT: 5002
+      FAILURE_RATE: 0
+    ports:
+      - "5002:5002"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-s", "http://localhost:5002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  backend-3:
+    build: .
+    command: node mockBackend/server.js
+    networks: [gateway-net]
+    environment:
+      PORT: 5003
+      FAILURE_RATE: 0
+    ports:
+      - "5003:5003"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-s", "http://localhost:5003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  # ── Gateway ───────────────────────────────────────────────────────────────
+  gateway:
+    build: .
+    command: node gateway.js
+    networks: [gateway-net]
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend-1:
+        condition: service_started
+      backend-2:
+        condition: service_started
+      backend-3:
+        condition: service_started
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      GATEWAY_PORT: 8080
+      BACKENDS: http://backend-1:5001,http://backend-2:5002,http://backend-3:5003
+      LB_STRATEGY: round-robin          # or least-connections
+      PROXY_TIMEOUT_MS: 10000
+      HEALTH_CHECK_INTERVAL_MS: 10000
+      CB_FAILURE_THRESHOLD: 5
+      CB_RECOVERY_TIMEOUT_MS: 30000
+      LOG_LEVEL: info
+      # Optional auth — disabled by default
+      AUTH_ENABLED: "false"
+      # API_KEYS: testkey-free:FREE,testkey-pro:PRO,testkey-premium:PREMIUM
+      ADMIN_API_KEY: "admin-secret-dev-key"
+      CORS_ORIGIN: "*"
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-s", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped

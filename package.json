@@ -1,0 +1,22 @@
+{
+  "name": "distributed-api-gateway",
+  "version": "2.0.0",
+  "description": "Distributed API gateway with pluggable rate limiting (token bucket, sliding window, leaky bucket), health-aware load balancing, circuit breaker, optional auth, real-time WebSocket dashboard, and structured metrics.",
+  "main": "gateway.js",
+  "engines": { "node": ">=18.0.0" },
+  "scripts": {
+    "start":      "node gateway.js",
+    "backend":    "node mockBackend/server.js",
+    "load-test":  "node loadTest.js",
+    "test":       "node --test tests/circuitBreaker.test.js tests/metrics.test.js tests/loadBalancer.test.js tests/phase2_apiKey.test.js tests/phase2_routes.test.js tests/phase2_quotas.test.js tests/phase2_requestLogs.test.js tests/phase2_errors.test.js tests/phase2_adminApi.test.js",
+    "test:redis": "node --test tests/rateLimiters.test.js",
+    "test:all":   "node --test tests/circuitBreaker.test.js tests/metrics.test.js tests/loadBalancer.test.js tests/rateLimiters.test.js tests/phase2_apiKey.test.js tests/phase2_routes.test.js tests/phase2_quotas.test.js tests/phase2_requestLogs.test.js tests/phase2_errors.test.js tests/phase2_adminApi.test.js"
+  },
+  "dependencies": {
+    "dotenv":     "^16.4.5",
+    "express":    "^4.19.2",
+    "http-proxy": "^1.18.1",
+    "ioredis":    "^5.4.1",
+    "ws":         "^8.18.0"
+  }
+}
